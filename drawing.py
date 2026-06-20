@@ -125,6 +125,10 @@ def _draw_logo(screen, logo_url, position, size=(80, 80), right_align=False):
 def _sidebar_event_summary(event_type, data):
     if event_type == "game_status_changed":
         return f"{data}"
+    if event_type == "game_score_changed":
+        if isinstance(data, tuple) and len(data) == 2:
+            return f"Goal update: {data[0]} - {data[1]}"
+        return f"Goal update: {data}"
     if event_type == "game_detail_updated":
         if isinstance(data, dict):
             name = data.get("name", "Update")

@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import contextlib
+import time
 from typing import Optional, List, Dict, Any, Callable
 import inspect 
 import pygame
@@ -51,10 +52,11 @@ class WorldCupDashboard:
 
         if event_type == "game_status_changed":
             status_text = self._format_status_label(data)
-            if game_id and self.last_announced_status.get(game_id) == status_text:
+            status_key = self._status_dedupe_key(data)
+            if game_id and self.last_announced_status.get(game_id) == status_key:
                 return
             if game_id:
-                self.last_announced_status[game_id] = status_text
+                self.last_announced_status[game_id] = status_key
             data = status_text
 
         entry = {
@@ -77,6 +79,13 @@ class WorldCupDashboard:
             return ""
         status_text = str(text).replace("STATUS_", "").replace("_", " ").strip()
         return status_text.title()
+
+    def _status_dedupe_key(self, text: Any) -> str:
+        """Collapse noisy live-status variants into a single feed bucket."""
+        normalized = str(text or "").replace("STATUS_", "").replace("_", " ").strip().upper()
+        if normalized in {"IN PROGRESS", "FIRST HALF", "SECOND HALF"}:
+            return "LIVE_HALF"
+        return normalized
     
     async def _fetch_scoreboard(self) -> List[Dict[str, Any]]:
         """Fetch current scoreboard from API"""
@@ -84,6 +93,12 @@ class WorldCupDashboard:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard",
+                    params={"_": str(int(time.time() * 1000))},
+                    headers={
+                        "Cache-Control": "no-cache, no-store, must-revalidate",
+                        "Pragma": "no-cache",
+                        "Expires": "0",
+                    },
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as resp:
                     scoreboard = await resp.json()
