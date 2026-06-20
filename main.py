@@ -9,6 +9,9 @@ from world_cup_dashboard import WorldCupDashboard
 import drawing
 import pygame
 
+import pathlib
+import os
+
 
 
 
@@ -45,32 +48,44 @@ async def main() -> None:
         
         if event_type == "game_detail_updated":
             print(f"Detail updated for {game_name}: {data}")
+            pygame.mixer.init()
+            pygame.mixer.music.load(os.path.join("sounds", "info.mp3"))
+            pygame.mixer.music.play()
+        if event_type == "game_score_changed":
+            print(f"Score changed for {game_name}: {data}")
+            pygame.mixer.init()
+            pygame.mixer.music.load(os.path.join("sounds", "goooooaall.mp3"))
+            pygame.mixer.music.play()
         elif event_type == "game_status_changed":
             print(f"Status changed for {game_name}: {data}")
+            pygame.mixer.init()
+            pygame.mixer.music.load(os.path.join("sounds", "referee-whistle.mp3"))
+            pygame.mixer.music.play()
 
 
     async def load_handler(data: List[Dict[str, Any]]) -> None:
         """Handler for when games are loaded"""
-        game_count = len(data)
-        # Fixed card size with wrapping: cards are 200x200, calculate how many fit per row, but center them
-        card_width, card_height = 200, 200
         sidebar_width = 300
-        board_width = max(card_width + 20, screen.get_width() - sidebar_width - 20)
-        cards_per_row = max(1, board_width // (card_width + 20))
-        offset_x = (board_width - (cards_per_row * (card_width + 20) - 20)) // 2
+        board_width = screen.get_width() - sidebar_width
+        layout = drawing.compute_game_layout(
+            screen.get_width(),
+            screen.get_height(),
+            sidebar_width,
+            len(data),
+        )
 
         screen.fill((0, 0, 0))
-        drawing.draw_pitch(screen)
+        drawing.draw_pitch(screen, board_width=board_width)
 
-        
-        for i, game in enumerate(data):
-            row = i // cards_per_row
-            col = i % cards_per_row
-            x = col * (card_width + 20) + offset_x
-            y = row * (card_height + 20) + 10
-            drawing.draw_match_data(screen, game, position=(x, y))
+        for game, (x, y, card_size) in zip(data, layout):
+            drawing.draw_match_data(screen, game, position=(x, y), card_size=card_size)
 
-        drawing.draw_sidebar(screen, dashboard.event_feed, position=(screen.get_width() - sidebar_width, 0), size=(sidebar_width, screen.get_height()))
+        drawing.draw_sidebar(
+            screen,
+            dashboard.event_feed,
+            position=(screen.get_width() - sidebar_width, 0),
+            size=(sidebar_width, screen.get_height()),
+        )
         pygame.display.flip()
 
     dashboard = WorldCupDashboard()

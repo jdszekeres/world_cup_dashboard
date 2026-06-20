@@ -186,17 +186,17 @@ class WorldCupDashboard:
             while self.running:
                 games_new = await self._fetch_scoreboard()
                 if games_new:
+                    await self._check_changes(games_new)
                     if not self.loaded:
                         self.loaded = True
-                        for listener in self.games_loaded_listeners:
-                            try:
-                                if inspect.iscoroutinefunction(listener):
-                                    await listener(games_new)
-                                else:
-                                    listener(games_new)
-                            except Exception as e:
-                                print(f"Error in games loaded listener: {e}")
-                    await self._check_changes(games_new)
+                    for listener in self.games_loaded_listeners:
+                        try:
+                            if inspect.iscoroutinefunction(listener):
+                                await listener(games_new)
+                            else:
+                                listener(games_new)
+                        except Exception as e:
+                            print(f"Error refreshing display: {e}")
                 await asyncio.sleep(poll_interval)
         except Exception as e:
             print(f"Error in dashboard: {e}")

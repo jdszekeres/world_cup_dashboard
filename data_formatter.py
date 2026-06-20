@@ -45,7 +45,10 @@ class DataFormatter:
                 return None
             status = match.get("status", {})
             if status:
-                return status.get("displayClock", "")
+                clock = status.get("displayClock", "")
+                if clock:
+                    return clock
+                return status.get("type", {}).get("shortDetail", "")
         except Exception as e:
             print(f"Error extracting time: {e}")
         return None

@@ -3,30 +3,130 @@ import io
 import requests
 import data_formatter
 
-def draw_match_data(screen, game, position=(10, 10)):
+CARD_GAP = 20
+BOARD_PADDING = 10
+MAX_CARD_SIZE = 200
+MIN_CARD_SIZE = 110
+
+
+def compute_game_layout(screen_width, screen_height, sidebar_width, game_count):
+    """Compute wrapped card positions that fit in the board area."""
+    if game_count <= 0:
+        return []
+
+    board_width = screen_width - sidebar_width - BOARD_PADDING
+    board_height = screen_height - BOARD_PADDING
+    max_cols = max(1, (board_width + CARD_GAP) // (MIN_CARD_SIZE + CARD_GAP))
+
+    best_layout = None
+    for cols in range(min(game_count, max_cols), 0, -1):
+        rows = (game_count + cols - 1) // cols
+        card_width = (board_width - (cols - 1) * CARD_GAP) // cols
+        card_height = (board_height - (rows - 1) * CARD_GAP) // rows
+        card_size = min(card_width, card_height, MAX_CARD_SIZE)
+        if card_size >= MIN_CARD_SIZE:
+            best_layout = (cols, rows, card_size)
+            break
+
+    if best_layout is None:
+        cols = max(1, board_width // (MIN_CARD_SIZE + CARD_GAP))
+        rows = (game_count + cols - 1) // cols
+        card_width = (board_width - (cols - 1) * CARD_GAP) // cols
+        card_height = (board_height - (rows - 1) * CARD_GAP) // rows
+        card_size = max(90, min(card_width, card_height))
+        best_layout = (cols, rows, card_size)
+
+    cols, rows, card_size = best_layout
+    grid_width = cols * card_size + (cols - 1) * CARD_GAP
+    grid_height = rows * card_size + (rows - 1) * CARD_GAP
+    offset_x = BOARD_PADDING + max(0, (board_width - grid_width) // 2)
+    offset_y = BOARD_PADDING + max(0, (board_height - grid_height) // 2)
+
+    positions = []
+    for index in range(game_count):
+        row = index // cols
+        col = index % cols
+        x = offset_x + col * (card_size + CARD_GAP)
+        y = offset_y + row * (card_size + CARD_GAP)
+        positions.append((x, y, card_size))
+    return positions
+
+
+def draw_match_data(screen, game, position=(10, 10), card_size=200):
     """Draw match data on the screen"""
     data = data_formatter.DataFormatter(game)
     logo1, logo2 = data.get_country_logo(game)
     name1, name2 = data.get_country_name(game)
     score1, score2 = data.get_score(game)
     time = data.get_time(game)
-    card_width, card_height = 200, 200
+    card_width = card_height = card_size
+    scale = card_size / MAX_CARD_SIZE
 
     pygame.draw.rect(screen, (0, 160, 0), pygame.Rect(position[0], position[1], card_width, card_height))
 
-    logo_y = position[1] + 20
-
-    if not name1 or not logo1 or not score1 or not time:
+    if not name1 and not name2:
         return
-        
-   
-    _draw_text(screen, name1, (position[0] + 10, position[1] + 10), (255, 255, 255))
-    _draw_text(screen, name2, (position[0] + card_width - 10, position[1] + 10), (255, 255, 255), right_align=True)
-    _draw_logo(screen, logo1, (position[0] + 10, logo_y), size=(90, 90))
-    _draw_logo(screen, logo2, (position[0] + card_width - 10, logo_y), size=(90, 90), right_align=True)
-    _draw_text(screen, score1, (position[0] + 10 + 40, position[1] + 150), (255, 255, 255))
-    _draw_text(screen, score2, (position[0] + card_width - 10 - 40, position[1] + 150), (255, 255, 255), right_align=True)
-    _draw_text(screen, time, (position[0] + card_width // 2 + (len(time) // 2 * 10), position[1] + 150), (255, 255, 255), right_align=True)
+
+    name1 = name1 or "TBD"
+    name2 = name2 or "TBD"
+    score1 = "-" if score1 is None else str(score1)
+    score2 = "-" if score2 is None else str(score2)
+    time = time or data.get_status(game) or ""
+
+    margin = max(6, int(10 * scale))
+    logo_y = position[1] + margin + int(10 * scale)
+    logo_size = max(40, int(90 * scale))
+    score_y = position[1] + card_height - margin - int(24 * scale)
+
+    _draw_text(
+        screen,
+        name1,
+        (position[0] + margin, position[1] + margin),
+        (255, 255, 255),
+        font_size=max(16, int(24 * scale)),
+    )
+    _draw_text(
+        screen,
+        name2,
+        (position[0] + card_width - margin, position[1] + margin),
+        (255, 255, 255),
+        right_align=True,
+        font_size=max(16, int(24 * scale)),
+    )
+    if logo1:
+        _draw_logo(screen, logo1, (position[0] + margin, logo_y), size=(logo_size, logo_size))
+    if logo2:
+        _draw_logo(
+            screen,
+            logo2,
+            (position[0] + card_width - margin, logo_y),
+            size=(logo_size, logo_size),
+            right_align=True,
+        )
+    _draw_text(
+        screen,
+        score1,
+        (position[0] + margin + int(40 * scale), score_y),
+        (255, 255, 255),
+        font_size=max(16, int(24 * scale)),
+    )
+    _draw_text(
+        screen,
+        score2,
+        (position[0] + card_width - margin - int(40 * scale), score_y),
+        (255, 255, 255),
+        right_align=True,
+        font_size=max(16, int(24 * scale)),
+    )
+    if time:
+        _draw_text(
+            screen,
+            time,
+            (position[0] + len(time) * (20/6) +  card_width // 2, score_y),
+            (255, 255, 255),
+            right_align=True,
+            font_size=max(16, int(24 * scale)),
+        )
 
 def draw_event_data(screen, event, position=(10, 10)):
     print(f"Drawing event data: {event}")
@@ -97,9 +197,9 @@ def draw_sidebar(screen, events, position=(0, 0), size=(300, 740)):
         if y + block_height > position[1] + size[1]:
             break
 
-def _draw_text(screen, text, position, color=(255, 255, 255), right_align=False):
+def _draw_text(screen, text, position, color=(255, 255, 255), right_align=False, font_size=24):
     """Helper function to draw text on the screen"""
-    font = pygame.font.SysFont(None, 24)
+    font = pygame.font.SysFont(None, font_size)
     text_surface = font.render(text, True, color)
     if right_align:
         position = (position[0] - text_surface.get_width(), position[1])
@@ -165,11 +265,13 @@ def load_sharp_scaled_svg(filename, scale_factor):
     return pygame.image.load(io.BytesIO(svg_string.encode()))
 
 
-def draw_pitch(screen):
+def draw_pitch(screen, board_width=None):
+    board_width = board_width or screen.get_width()
     football_pitch = load_sharp_scaled_svg("football_field.svg", 10)
     football_pitch = pygame.transform.rotate(football_pitch, 90)
-    football_pitch = pygame.transform.scale(football_pitch, (screen.get_width(), screen.get_height()))
-    
-    screen.blit(football_pitch, (0, 0))
+    football_pitch = pygame.transform.scale(
+        football_pitch,
+        (board_width, screen.get_height()),
+    )
 
-    pygame.display.flip()
+    screen.blit(football_pitch, (0, 0))
