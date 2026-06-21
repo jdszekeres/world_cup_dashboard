@@ -51,13 +51,7 @@ class WorldCupDashboard:
         game_name = self._format_display_name(game.get("name", "Unknown"))
 
         if event_type == "game_status_changed":
-            status_text = self._format_status_label(data)
-            status_key = self._status_dedupe_key(data)
-            if game_id and self.last_announced_status.get(game_id) == status_key:
-                return
-            if game_id:
-                self.last_announced_status[game_id] = status_key
-            data = status_text
+            data = self._format_status_label(data)
 
         entry = {
             "game_name": game_name,
@@ -85,7 +79,21 @@ class WorldCupDashboard:
         normalized = str(text or "").replace("STATUS_", "").replace("_", " ").strip().upper()
         if normalized in {"IN PROGRESS", "FIRST HALF", "SECOND HALF"}:
             return "LIVE_HALF"
+        if normalized in {"FULL TIME", "FINAL", "END"}:
+            return "FINAL"
         return normalized
+
+    def _remember_status_key(self, game_id: str, status: Any) -> None:
+        """Track the last seen status bucket for a game."""
+        if game_id:
+            self.last_announced_status[game_id] = self._status_dedupe_key(status)
+
+    def _status_bucket_changed(self, game_id: str, status: Any) -> bool:
+        """Return True when the normalized status bucket differs from the last one."""
+        if not game_id:
+            return False
+        status_key = self._status_dedupe_key(status)
+        return self.last_announced_status.get(game_id) != status_key
     
     async def _fetch_scoreboard(self) -> List[Dict[str, Any]]:
         """Fetch current scoreboard from API"""
@@ -124,6 +132,11 @@ class WorldCupDashboard:
         """Detect and emit changes"""
         if self.games is None:
             self.games = games_new
+            for game in games_new:
+                self._remember_status_key(
+                    game.get("id", ""),
+                    game.get("status", {}).get("type", {}).get("name", ""),
+                )
             return
         
         for game in games_new:
@@ -131,7 +144,10 @@ class WorldCupDashboard:
             old_game = next((g for g in self.games if g.get("id") == game_id), None)
             
             if old_game is None:
-                # New game
+                self._remember_status_key(
+                    game_id,
+                    game.get("status", {}).get("type", {}).get("name", ""),
+                )
                 await self._emit_event("game_added", game, None)
                 continue
             
@@ -143,10 +159,10 @@ class WorldCupDashboard:
                 for detail in new_items:
                     await self._emit_event("game_detail_updated", game, detail)
             
-            # Check status
+            # Check status using normalized buckets so API noise does not retrigger sounds.
             new_status = game.get("status", {}).get("type", {}).get("name", "")
-            old_status = old_game.get("status", {}).get("type", {}).get("name", "")
-            if new_status != old_status:
+            if self._status_bucket_changed(game_id, new_status):
+                self._remember_status_key(game_id, new_status)
                 await self._emit_event("game_status_changed", game, new_status)
 
             # Check scores so goal updates redraw immediately.

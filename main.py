@@ -1,3 +1,5 @@
+import sys
+
 import aiohttp
 import asyncio
 import contextlib
@@ -14,17 +16,33 @@ import os
 
 
 
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
 
+    return os.path.join(base_path, relative_path)
 
 
 async def main() -> None:
     """Main entry point"""
     pygame.init()
 
+
+    pygame.mixer.init()
+    pygame.mixer.music.set_volume(0.5)
+    pygame.display.set_caption("World Cup Dashboard")
+
+    logo = pygame.image.load(resource_path( "icon.ico"))
+    pygame.display.set_icon(logo)
+
+
     screen = pygame.display.set_mode((1110, 740))
 
     
-
     drawing.draw_match_data(screen, {})
 
     async def status_handler(event: Dict[str, Any]) -> None:
@@ -48,18 +66,15 @@ async def main() -> None:
         
         if event_type == "game_detail_updated":
             print(f"Detail updated for {game_name}: {data}")
-            pygame.mixer.init()
-            pygame.mixer.music.load(os.path.join("sounds", "info.mp3"))
+            pygame.mixer.music.load(resource_path(os.path.join("sounds", "info.mp3")))
             pygame.mixer.music.play()
         if event_type == "game_score_changed":
             print(f"Score changed for {game_name}: {data}")
-            pygame.mixer.init()
-            pygame.mixer.music.load(os.path.join("sounds", "goooooaall.mp3"))
+            pygame.mixer.music.load(resource_path(os.path.join("sounds", "goooooaall.mp3")))
             pygame.mixer.music.play()
         elif event_type == "game_status_changed":
             print(f"Status changed for {game_name}: {data}")
-            pygame.mixer.init()
-            pygame.mixer.music.load(os.path.join("sounds", "referee-whistle.mp3"))
+            pygame.mixer.music.load(resource_path(os.path.join("sounds", "referee-whistle.mp3")))
             pygame.mixer.music.play()
 
 

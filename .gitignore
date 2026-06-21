@@ -1,1 +1,6 @@
 __pycache__/
+
+# Pyinstaller code
+build/
+dist/
+*.spec
