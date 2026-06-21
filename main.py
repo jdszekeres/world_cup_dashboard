@@ -11,19 +11,15 @@ from world_cup_dashboard import WorldCupDashboard
 import drawing
 import pygame
 
-import pathlib
 import os
 
 
-
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
+def resource_path(relative_path: str) -> str:
+    """Absolute path to a bundled asset (dev, script, or PyInstaller exe)."""
+    if getattr(sys, "frozen", False):
         base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
 

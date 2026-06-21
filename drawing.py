@@ -1,3 +1,5 @@
+import sys
+
 import pygame
 import io
 import requests
@@ -267,7 +269,8 @@ def load_sharp_scaled_svg(filename, scale_factor):
 
 def draw_pitch(screen, board_width=None):
     board_width = board_width or screen.get_width()
-    football_pitch = load_sharp_scaled_svg("football_field.svg", 10)
+    main_mod = sys.modules.get("main") or sys.modules["__main__"]
+    football_pitch = load_sharp_scaled_svg(main_mod.resource_path("Football_field.svg"), 10)
     football_pitch = pygame.transform.rotate(football_pitch, 90)
     football_pitch = pygame.transform.scale(
         football_pitch,
